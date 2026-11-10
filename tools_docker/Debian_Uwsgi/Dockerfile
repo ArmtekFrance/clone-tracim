@@ -21,10 +21,9 @@ ARG CONTAINER_TRACIM_DIR
 RUN apt-get update \
    && apt-get upgrade -qy \
    && apt-get install apt-utils git -qy
-COPY ./clone_repo.sh /clone_repo.sh
-RUN /clone_repo.sh "${REPO}" "${BRANCH}" "${TAG}" "${CONTAINER_TRACIM_DIR}"
-RUN rm /clone_repo.sh
-COPY ./tracim_set_version.sh /tracim_set_version.sh
+RUN mkdir /tracim
+COPY . /tracim/
+COPY ./tools_docker/Debian_Uwsgi/tracim_set_version.sh /tracim_set_version.sh
 RUN /tracim_set_version.sh "${VERSION}" "${CONTAINER_TRACIM_DIR}"
 RUN rm /tracim_set_version.sh
 RUN apt-get install -qy --no-install-recommends \
@@ -47,7 +46,7 @@ FROM base AS build_backend
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 ARG PACKAGE_DIR
 # required packages for building the backend dependencies
-RUN apt-get install -qy $(cat "${PACKAGE_DIR}/build_backend_packages.list") \
+RUN apt-get install --no-install-recommends -qy $(cat "${PACKAGE_DIR}/build_backend_packages.list") \
     # Go in backend folder \
     && cd /tracim/backend \
     #--- pip install section \
@@ -118,9 +117,10 @@ RUN apt-get install -qy curl gpg \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://pushpin.org/pushpin-package.asc | gpg --dearmor -o /etc/apt/keyrings/pushpin.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/pushpin.gpg] https://packages.pushpin.org/deb pushpin-jammy main" > /etc/apt/sources.list.d/pushpin.list \
+    && echo "Package: pushpin\nPin: version 1.41.0-2~jammy1\nPin-Priority: 999" > /etc/apt/preferences.d/pushpin.pref \
     && apt-get update \
     # HACK - PGO - 2026-08-11 Pushpin is in server_packages.list but doing install directly to avoid googleapis 400 bad request error (#6924) \
-    && apt-get install -qy pushpin
+    && apt-get install --no-install-recommends -qy pushpin
 RUN apt-get install -qy $(cat "${PACKAGE_DIR}/server_packages.list" "${PACKAGE_DIR}/optional_preview_packages.list") vim wget curl \
     && apt-get autoremove -qy \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/ /tmp/* /var/tmp/* \
